@@ -1,3 +1,4 @@
+set echo on ;
 --##############################################################################
 --### 4CE Phase 2.1
 --### Date: September 25, 2020
@@ -22,6 +23,32 @@
 --------------------------------------------------------------------------------
 -- General settings
 --------------------------------------------------------------------------------
+whenever sqlerror continue
+;
+drop table config2 purge;
+drop table PatientSummary purge;
+drop table PatientClinicalCourse purge;
+drop table PatientObservations purge;
+drop table PatientMapping purge;
+drop table icd_map purge;
+whenever sqlerror exit sql.sqlcode
+;
+--------------------------------------------------------------------------------
+-- ICD to DX_ID mappping (KUMC specififc)
+--------------------------------------------------------------------------------
+create table icd_map
+nologging parallel
+TABLESPACE "COVID"
+as
+select c_basecode dx_id,pcori_basecode icd10
+from nightherondata.pcornet_diag
+where c_basecode like 'KUH|DX_ID%'
+and  pcornet_diag.c_fullname like '\PCORI\DIAGNOSIS\10%'
+and pcori_basecode is not null
+;  
+--------------------------------------------------------------------------------
+-- CONFIG2
+--------------------------------------------------------------------------------
 create table config2 (
 	replace_patient_num number(1), -- Replace the patient_num with a unique random number
 	save_as_columns number(1), -- Save the data as tables with separate columns per field
@@ -29,17 +56,16 @@ create table config2 (
 	output_as_columns number(1), -- Return the data in tables with separate columns per field
 	output_as_csv number(1) -- Return the data in tables with a single column containing comma separated values
 );
-
-
 insert into config2
 	select 
 		1, -- replace_patient_num
-		0, -- save_as_columns
-		'P2', -- save_as_prefix (don't use "4CE" since it starts with a number)
+		1, -- save_as_columns
+		'P2', -- save_as_prefix (dont use 4CE since it starts with a number)
 		0, -- output_as_columns
-		1 from dual; -- output_as_csv
-
-
+		1 from dual -- output_as_csv
+;
+--1 row inserted.
+commit;
 --******************************************************************************
 --******************************************************************************
 --*** Create the Phase 2.0 patient level data tables
@@ -116,8 +142,8 @@ insert INTO patientsummary (
 			from covid_demographics_temp
 			group by patient_num
 		) d on c.patient_num=d.patient_num ;
-        
-        commit;
+-- 1,318 rows inserted.        
+commit;
 
 --------------------------------------------------------------------------------
 -- Patient Clinical Course: Status by Number of Days Since Admission
@@ -160,9 +186,8 @@ case when death_date is not null then 1 else 0 end DECEASED
 	) t
 	group by days_since_admission,patient_num
 ) ;
+--12,232 rows inserted.
 commit;
-
-
 --------------------------------------------------------------------------------
 -- Patient Observations: Selected Data Facts
 --------------------------------------------------------------------------------
@@ -179,7 +204,8 @@ create table PatientObservations (
 alter table PatientObservations add primary key (patient_num, concept_type, concept_code, days_since_admission);
 
 -- truncate table PatientObservations ;
-
+/*
+-- ICD9 retired few years ago, data will be in ICD10
 -- Diagnoses (3 character ICD9 codes) since 365 days before COVID
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
 	select distinct '@',
@@ -189,29 +215,40 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
         substr(substr(f.concept_cd, length(code_prefix_icd9cm)+1, 999), 1, 3) icd_code_3chars ,
 		-999
  	from covid_config x
-		cross join observation_fact f
+		cross join nightherondata.observation_fact f
 		inner join covid_cohort p 
         on f.patient_num=p.patient_num 
         and f.start_date >= (p.admission_date -365)
     where concept_cd like code_prefix_icd9cm||'%' and  code_prefix_icd9cm is not null;
+--0 rows inserted.
     commit;
-    
+*/
+/*
+delete PatientObservations
+where concept_type ='DIAG-ICD10';
+commit;
+*/
 -- Diagnoses (3 character ICD10 codes) since 365 days before COVID
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
 	select distinct '@',
 		p.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'DIAG-ICD10',
-        substr(substr(f.concept_cd, length(code_prefix_icd10cm)+1, 999), 1, 3) icd_code_3chars,
+        -- substr(substr(f.concept_cd, length(code_prefix_icd10cm)+1, 999), 1, 3) icd_code_3chars,
+        substr(substr(code_prefix_icd10cm || ICD_map.icd10, length(code_prefix_icd10cm)+1, 999), 1, 3) icd_code_3chars, -- KUMC specific
 		-999
  	from covid_config x
-		cross join observation_fact f
+		cross join nightherondata.observation_fact f
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
                 and f.start_date >= (p.admission_date -365)
-    where concept_cd like code_prefix_icd10cm||'%' ; --and code_prefix_icd10cm is not null;
-    
-    commit;
+        inner join ICD_map                                                                                      -- KUMC specific
+            on f.concept_cd = ICD_map.dx_id                                                                     -- KUMC specific 
+    --where concept_cd like code_prefix_icd10cm||'%'  --and code_prefix_icd10cm is not null;
+    where concept_cd in (select dx_id from ICD_map) ; --and code_prefix_icd10cm is not null;                    -- KUMC specific
+--130,730 rows inserted.
+commit;
+
  -- Medications (Med Class) since 365 days before COVID   
  insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
 	select distinct '@',
@@ -220,12 +257,13 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		'MED-CLASS',
 		m.med_class,	
 		-999
-	from observation_fact f
+	from nightherondata.observation_fact f
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
                 and f.start_date >= ( p.admission_date -365)
 		inner join covid_med_map m
 			on f.concept_cd = m.local_med_code;
+-- 3,530 rows inserted.
  commit;
  
  -- Labs (LOINC) since 60 days (two months) before COVID
@@ -236,7 +274,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		'LAB-LOINC',		
 		l.loinc,
 		avg(f.nval_num*l.scale_factor)
-	from observation_fact f
+	from nightherondata.observation_fact f
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num
 		inner join COVID_LAB_MAP l
@@ -247,6 +285,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
         and f.start_date >= ( p.admission_date -60)
         and l.scale_factor is not null
     group by f.patient_num, trunc(f.start_date) - trunc(p.admission_date) , l.loinc;
+--136,096 rows inserted.
  commit;   
 -- Procedures (ICD9) each day since COVID (only procedures used in 4CE Phase 1.1 to determine severity)
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
@@ -257,7 +296,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
         substr(f.concept_cd, length(code_prefix_icd9proc)+1, 999),
 		-999
  	from covid_config x
-		cross join observation_fact f
+		cross join nightherondata.observation_fact f
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= p.admission_date
@@ -268,17 +307,19 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 			-- Invasive mechanical ventilation
             or regexp_like(f.concept_cd , x.code_prefix_icd9proc||'96.7[012]{1}') --Converted to ORACLE Regex 
 		);
+--0 rows inserted.
 commit;
 -- Procedures (ICD10) each day since COVID (only procedures used in 4CE Phase 1.1 to determine severity)
 
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select distinct '@', p.patient_num,
+	select distinct '@', --987654321, 1,
+        p.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'PROC-ICD10',
         substr(f.concept_cd, length(code_prefix_icd10pcs)+1, 999) ,
 		-999
  	from covid_config x
-		cross join observation_fact f
+		cross join nightherondata.observation_fact f
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= p.admission_date
@@ -289,8 +330,18 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 			-- Invasive mechanical ventilation
             or regexp_like(f.concept_cd , x.code_prefix_icd10pcs||'5A09[345]{1}[A-Z0-9]?') --Converted to ORACLE Regex 
 		) ;
+--0 rows inserted.
 commit;
+select count(distinct patient_num) from nightherondata.observation_fact
+	where concept_cd like 'ICD10:'||'%'  
+		and concept_cd = 'ICD10:0BH17EZ';
+--142
+select count(distinct patient_num) from nightherondata.observation_fact
+	where concept_cd like 'ICD9:'||'%'  
+		and concept_cd = 'ICD9:96.04';
+--32
 
+--;
 
 --******************************************************************************
 --******************************************************************************
@@ -322,7 +373,7 @@ begin
  If v_counts > 0 Then
         insert into PatientMapping (siteid, patient_num, study_num)
         select distinct '@',m.patient_ide,m.patient_num
-        from patient_mapping m
+        from nightherondata.patient_mapping m
         inner join PatientSummary p
         on m.patient_ide = p.patient_num;
 
@@ -359,6 +410,14 @@ else
  End if;
 
 end;
+/*
+Error report -
+ORA-01407: cannot update ("LPATEL"."PATIENTSUMMARY"."PATIENT_NUM") to NULL
+ORA-06512: at line 14
+01407. 00000 -  "cannot update (%s) to NULL"
+*Cause:    
+*Action:
+*/
 
 --------------------------------------------------------------------------------
 -- Set the siteid to a unique value for your institution.
@@ -374,7 +433,6 @@ commit;
 --*** Finish up
 --******************************************************************************
 --******************************************************************************
-
 --------------------------------------------------------------------------------
 -- OPTION #: Save the data as tables.
 -- * Make sure everything looks reasonable.
@@ -419,6 +477,8 @@ dbms_output.put_line( 'Per config setting skipping the run');
 
 end;
 
+exit
+;
 ----
 
 --------------------------------------------------------------------------------
