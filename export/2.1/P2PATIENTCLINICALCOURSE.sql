@@ -7,7 +7,7 @@ set linesize 32000;
 set pagesize 0  -- No header rows
 set feedback off
 set markup csv on
-spool LocalPatientCLinicalCourse.csv
+spool LocalPatientClinicalCourse.csv
 set colsep ','
 select SITEID || ',' || PATIENT_NUM || ',' || DAYS_SINCE_ADMISSION || ',' || CALENDAR_DATE || ',' || IN_HOSPITAL || ',' || SEVERE || ',' || DECEASED from P2PATIENTCLINICALCOURSE;
 spool off;
