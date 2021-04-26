@@ -6,10 +6,10 @@ sqlplus $USER_NAME/$USER_PASSWORD@$ORACLE_SID @P2PATIENTOBSERVATIONS.sql
 sqlplus $USER_NAME/$USER_PASSWORD@$ORACLE_SID @P2PATIENTSUMMARY.sql
 
 
-sed -i 1i"SITEID ,PATIENT_NUM ,DAYS_SINCE_ADMISSION ,CALENDAR_DATE ,IN_HOSPITAL ,SEVERE ,DECEASED" LocalPatientClinicalCourse.csv
-sed -i 1i"SITEID ,PATIENT_NUM ,STUDY_NUM" LocalPatientMapping.csv
-sed -i 1i"SITEID ,PATIENT_NUM ,DAYS_SINCE_ADMISSION , CONCEPT_TYPE ,CONCEPT_CODE ,VALUE" LocalPatientObservations.csv
-sed -i 1i"SITEID ,PATIENT_NUM ,ADMISSION_DATE ,DAYS_SINCE_ADMISSION ,LAST_DISCHARGE_DATE ,STILL_IN_HOSPITAL ,SEVERE_DATE ,SEVERE ,DEATH_DATE ,DECEASED ,SEX ,AGE_GROUP ,RACE ,RACE_COLLECTED" \
+sed -i 1i"siteid ,patient_num ,days_since_admission ,calendar_date ,in_hospital ,severe ,deceased" LocalPatientClinicalCourse.csv
+sed -i 1i"siteid ,patient_num ,study_num" LocalPatientMapping.csv
+sed -i 1i"siteid ,patient_num ,days_since_admission , concept_type ,concept_code ,value" LocalPatientObservations.csv
+sed -i 1i"siteid ,patient_num ,admission_date ,days_since_admission ,last_discharge_date ,still_in_hospital ,severe_date ,severe ,death_date ,deceased ,sex ,age_group ,race ,race_collected" \
     LocalPatientSummary.csv
 
 exit 0
