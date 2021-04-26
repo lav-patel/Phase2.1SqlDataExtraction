@@ -9,6 +9,6 @@ set feedback off
 set markup csv on
 spool LocalPatientObservations.csv
 set colsep ','
-select SITEID || ',' || PATIENT_NUM || ',' || DAYS_SINCE_ADMISSION || ',' || CONCEPT_TYPE || ',' || CONCEPT_CODE || ',' || VALUE from P2PATIENTOBSERVATIONS;
+select SITEID || ',' || PATIENT_NUM || ',' || DAYS_SINCE_ADMISSION || ',' || CONCEPT_TYPE || ',' || CONCEPT_CODE || ',' || VALUE from PATIENTOBSERVATIONS;
 spool off;
 exit;

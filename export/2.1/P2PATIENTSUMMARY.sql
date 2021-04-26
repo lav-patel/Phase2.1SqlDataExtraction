@@ -9,6 +9,6 @@ set feedback off
 set markup csv on
 spool LocalPatientSummary.csv
 set colsep ','
-select SITEID || ',' || PATIENT_NUM || ',' || ADMISSION_DATE || ',' || DAYS_SINCE_ADMISSION || ',' || LAST_DISCHARGE_DATE || ',' || STILL_IN_HOSPITAL || ',' || SEVERE_DATE || ',' || SEVERE || ',' || DEATH_DATE || ',' || DECEASED || ',' || SEX || ',' || AGE_GROUP || ',' || RACE || ',' || RACE_COLLECTED from P2PATIENTSUMMARY;
+select SITEID || ',' || PATIENT_NUM || ',' || ADMISSION_DATE || ',' || DAYS_SINCE_ADMISSION || ',' || LAST_DISCHARGE_DATE || ',' || STILL_IN_HOSPITAL || ',' || SEVERE_DATE || ',' || SEVERE || ',' || DEATH_DATE || ',' || DECEASED || ',' || SEX || ',' || AGE_GROUP || ',' || RACE || ',' || RACE_COLLECTED from PATIENTSUMMARY;
 spool off;
 exit;

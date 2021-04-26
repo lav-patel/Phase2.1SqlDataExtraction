@@ -9,6 +9,6 @@ set feedback off
 set markup csv on
 spool LocalPatientMapping.csv
 set colsep ','
-select SITEID || ',' || PATIENT_NUM || ',' || STUDY_NUM from P2PATIENTMAPPING;
+select SITEID || ',' || PATIENT_NUM || ',' || STUDY_NUM from PATIENTMAPPING;
 spool off;
 exit;
