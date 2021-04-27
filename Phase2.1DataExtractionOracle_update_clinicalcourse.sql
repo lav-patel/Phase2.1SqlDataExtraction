@@ -16,7 +16,6 @@ as
       cc.*
      ,days_since_admission - LAG(days_since_admission,1,0) OVER (partition by patient_num ORDER BY days_since_admission) diff
     from PATIENTCLINICALCOURSE cc
---    where patient_num=100041
 )
 ,cc_readmit as
 (
@@ -32,10 +31,8 @@ set serveroutput on size 1000000;
 BEGIN
   FOR r IN (select * from cc_readmit)
   LOOP
-    --dbms_output.put_line(r.diff);
     for r2 in 2..r.diff
     LOOP
-        --dbms_output.put_line('--'||r2);
         -- 0 for outside hospital
         insert into PATIENTCLINICALCOURSE (siteid,patient_num,days_since_admission, calendar_date, in_hospital, severe, deceased)
         values (r.siteid,r.patient_num,r.days_since_admission-r2+1, r.calendar_date-r2+1, 0, r.severe, r.deceased);
