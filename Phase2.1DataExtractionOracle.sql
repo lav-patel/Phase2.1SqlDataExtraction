@@ -114,7 +114,7 @@ insert INTO patientsummary (
         race,
         race_collected
     )
-	select '@', c.patient_num, c.admission_date, 
+	select 'KUMC', c.patient_num, c.admission_date, 
 		round(sysdate - c.admission_date) ,
 		(case when trunc(a.last_discharge_date) = trunc(sysdate)  then TO_DATE('01/01/1900','mm/dd/rrrr') 
           else a.last_discharge_date end),
@@ -169,7 +169,7 @@ case when in_hospital is not null then 1 else 0 end in_hospital,
 severe,
 case when death_date is not null then 1 else 0 end DECEASED
  from
-	(select '@' siteid, days_since_admission, patient_num,
+	(select 'KUMC' siteid, days_since_admission, patient_num,
 		count(*) in_hospital,
 		sum(severe) severe,
         max(admission_date) admission_date,
@@ -208,7 +208,7 @@ alter table PatientObservations add primary key (patient_num, concept_type, conc
 -- ICD9 retired few years ago, data will be in ICD10
 -- Diagnoses (3 character ICD9 codes) since 365 days before COVID
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select distinct '@',
+	select distinct 'KUMC',
 		p.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'DIAG-ICD9',
@@ -230,7 +230,7 @@ commit;
 */
 -- Diagnoses (3 character ICD10 codes) since 365 days before COVID
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select distinct '@',
+	select distinct 'KUMC',
 		p.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'DIAG-ICD10',
@@ -251,7 +251,7 @@ commit;
 
  -- Medications (Med Class) since 365 days before COVID   
  insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select distinct '@',
+	select distinct 'KUMC',
 		p.patient_num,
          trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'MED-CLASS',
@@ -268,7 +268,7 @@ commit;
  
  -- Labs (LOINC) since 60 days (two months) before COVID
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select '@', 
+	select 'KUMC', 
 		f.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'LAB-LOINC',		
@@ -289,7 +289,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
  commit;   
 -- Procedures (ICD9) each day since COVID (only procedures used in 4CE Phase 1.1 to determine severity)
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select distinct '@', 
+	select distinct 'KUMC', 
 		p.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,        
 		'PROC-ICD9',
@@ -312,7 +312,7 @@ commit;
 -- Procedures (ICD10) each day since COVID (only procedures used in 4CE Phase 1.1 to determine severity)
 
 insert into PatientObservations (siteid, patient_num, days_since_admission, concept_type, concept_code, value)
-	select distinct '@', --987654321, 1,
+	select distinct 'KUMC', --987654321, 1,
         p.patient_num,
         trunc(f.start_date) - trunc(p.admission_date) days_since_admission,
 		'PROC-ICD10',
@@ -372,7 +372,7 @@ begin
  select count(*) into v_counts from config2 where replace_patient_num = 1;
  If v_counts > 0 Then
         insert into PatientMapping (siteid, patient_num, study_num)
-        select distinct '@',m.patient_ide,m.patient_num
+        select distinct 'KUMC',m.patient_ide,m.patient_num
         from nightherondata.patient_mapping m
         inner join PatientSummary p
         on m.patient_ide = p.patient_num;
@@ -403,7 +403,7 @@ begin
 else
 
 	insert into PatientMapping (siteid, patient_num, study_num)
-		select '@', patient_num, patient_num
+		select 'KUMC', patient_num, patient_num
 		from PatientSummary ;
                     commit;
  
